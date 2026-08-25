@@ -10,7 +10,7 @@ import { useTheme } from '@/lib/ThemeProvider';
 import { useLocalList, newId } from '@/lib/postStore';
 import {
   Relation, REL_SEED, Character, CHAR_SEED, RelMember, QaEntry, QaAnswer, TlItem, findChar, Visibility, CharGrant,
-  auMember, auStyle, fullShadow,
+  auMember, auStyle, fullShadow, hasRelGrant,
   RelAu, RelCpTag, charWithAu, charGrant,
   QaAnswerRow, QA_KEY, QA_SEED, MergedAnswer, answersFor,
 } from '@/lib/charStore';
@@ -391,6 +391,34 @@ export default function RelDetailPage() {
   const answersOf = (no: number): MergedAnswer[] =>
     answersFor(qaRows, rel?.id ?? '', au?.id ?? 'base', no, auQuestions.find(q => q.no === no)?.answers ?? []);
   const curAnswers = curQa ? answersOf(curQa.no) : [];
+  /* 답변 내용 가리기 (v2.0 사용자 요청) — 질문은 그대로 두고 말풍선 안만 가린다.
+     화면에서 가리는 것일 뿐 완전한 차단이 아니라는 점은 설정 화면에 적어 두었다.
+     관리자와 그 답변을 쓴 본인에게는 늘 보인다 — 자기가 쓴 걸 못 보게 하면 고칠 수도 없다. */
+  /* 답변 영역을 통째로 가릴지 (v2.0 사용자 확정) — 말풍선을 하나씩 가리면 몇 명이 무슨 순서로
+     답했는지가 그대로 드러난다. 아예 「비공개 답변」 한 줄만 보여 준다.
+     **관리자와 이 자관 캐릭터에 권한을 받은 회원은 전부 본다** — 답을 달 수 있는 사람이
+     곧 권한자이므로, 자기 답변을 못 보는 경우는 생기지 않는다. */
+  const qaHidden = !!rel?.qaHide && !isAdmin && !hasRelGrant(rel.members, chars, user?.id);
+
+  /* 새 답변이 달리면 아래로 내려 최신 것을 보여 준다 (v2.0 사용자 요청 — 역극 채팅과 같은 동작).
+     다만 **위로 올려 예전 답변을 읽는 중이면 끌어내리지 않는다** — 읽던 자리를 뺏기면 성가시다.
+     바닥 근처에 있을 때만 따라 내려가고, 질문을 바꾸면 무조건 맨 아래(최신)에서 시작한다. */
+  const ansRef = useRef<HTMLDivElement>(null);
+  const stickRef = useRef(true);
+  const onAnsScroll = () => {
+    const el = ansRef.current;
+    if (el) stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+  };
+  useEffect(() => {
+    const el = ansRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;   // 질문을 바꾸거나 탭을 열면 최신 답변부터
+    stickRef.current = true;
+  }, [curQa?.no, tab]);
+  useEffect(() => {
+    const el = ansRef.current;
+    if (el && stickRef.current) el.scrollTop = el.scrollHeight;
+  }, [curAnswers.length]);
   // 전신이 하나도 등록되지 않았으면 전신 모드를 두지 않는다 —
   // 빈 자리에 「○○ 전신」 자리표시자를 세우는 대신 대표 일러스트만 보여 준다 (사용자 확정)
   const fullRefOf = (cid: string) =>
@@ -985,9 +1013,9 @@ export default function RelDetailPage() {
       {/* 타임라인 / 페어 문답 탭 (v1.8) */}
       <div className={`panel timeline ${!isDuo ? 'multi' : ''}`} style={{ fontFamily: familyOf(rel.bodyFontId) }}>
         <div className="rel-tabs">
-          <button className={tab === 'tl' ? 'on' : ''} onClick={() => setTab('tl')}>TIMELINE</button>
+          <button className={tab === 'tl' ? 'on' : ''} onClick={() => setTab('tl')}><span className="lb-pc">TIMELINE</span><span className="lb-m">T</span></button>
           {/* QUESTIONS 섹션은 ＋로 추가해야 생김 (v1.9) — 처음에는 타임라인만 */}
-          {qaOn && <button className={tab === 'qa' ? 'on' : ''} onClick={() => setTab('qa')}>QUESTIONS</button>}
+          {qaOn && <button className={tab === 'qa' ? 'on' : ''} onClick={() => setTab('qa')}><span className="lb-pc">QUESTIONS</span><span className="lb-m">Q</span></button>}
           {isAdmin && !qaOn && (
             <button data-tip="QUESTIONS 섹션 추가" style={{ color: 'var(--faint)', fontSize: 14, padding: '0 6px' }}
               onClick={() => setQsetOpen(true)}>＋</button>
@@ -999,27 +1027,31 @@ export default function RelDetailPage() {
                 <button className={`btn ${tlSort ? 'btn-accent' : 'btn-ghost'}`}
                   style={{ height: 35, padding: '0 14px', fontSize: 11.5 }}
                   onClick={() => setTlSort(v => !v)}>
-                  {tlSort ? '정렬 완료' : '⠿ 정렬'}
+                  <span className="lb-pc">{tlSort ? '정렬 완료' : '⠿ 정렬'}</span>
+                  <span className="lb-m">⠿</span>
                 </button>
               )}
               {tab === 'tl'
-                ? <button className="btn btn-dark" style={{ height: 35, padding: '0 14px', fontSize: 11.5 }} onClick={() => setTlOpen(true)}>＋ ADD RECORD</button>
+                ? <button className="btn btn-dark" style={{ height: 35, padding: '0 14px', fontSize: 11.5 }} data-tip="기록 추가" onClick={() => setTlOpen(true)}><span className="lb-pc">＋ ADD RECORD</span><span className="lb-m">＋</span></button>
                 : <>
-                  <button className="btn btn-ghost" style={{ height: 35, padding: '0 14px', fontSize: 11.5 }} onClick={() => setQsetOpen(true)}>＋ 질문 리스트</button>
+                  <button className="btn btn-ghost" style={{ height: 35, padding: '0 14px', fontSize: 11.5 }} data-tip="질문 리스트 추가" onClick={() => setQsetOpen(true)}><span className="lb-pc">＋ 질문 리스트</span><span className="lb-m">≡</span></button>
                   {/* 되돌리기는 오른쪽 질문 리스트에서 우클릭 (v2.0 사용자 요청) — 여기엔 건너뛰기만 */}
                   {curQa && (
                     <button className="btn btn-ghost" style={{ height: 35, padding: '0 14px', fontSize: 11.5 }}
                       data-tip="이 질문을 아주 버리고 다음 질문으로 — 다시 나오지 않음 (되돌리려면 오른쪽 리스트에서 우클릭)"
-                      onClick={skipQuestion}>질문 건너뛰기</button>
+                      onClick={skipQuestion}><span className="lb-pc">질문 건너뛰기</span><span className="lb-m">⏭</span></button>
                   )}
                   {/* 대기 풀에서 랜덤 출제 (v1.9) — 리스트를 넣어도 자동 출제되지 않으므로(v2.0)
                       아직 받은 질문이 없을 때는 「질문 받기」로 문구를 바꿔 이 버튼이 시작점임을 알린다 */}
                   {auQaPool.length > 0 && (
                     <button className={curQa ? 'btn btn-ghost' : 'btn btn-dark'} style={{ height: 35, padding: '0 14px', fontSize: 11.5 }}
                       data-tip={`대기 질문 ${auQaPool.length}개`}
-                      onClick={drawNextQuestion}>{curQa ? '완료 — 다음 질문' : '질문 받기'}</button>
+                      onClick={drawNextQuestion}>
+                      <span className="lb-pc">{curQa ? '완료 — 다음 질문' : '질문 받기'}</span>
+                      <span className="lb-m">↻</span>
+                    </button>
                   )}
-                  <button className="btn btn-dark" style={{ height: 35, padding: '0 14px', fontSize: 11.5 }} onClick={() => setQOpen(true)}>＋ ADD QUESTION</button>
+                  <button className="btn btn-dark" style={{ height: 35, padding: '0 14px', fontSize: 11.5 }} data-tip="질문 추가" onClick={() => setQOpen(true)}><span className="lb-pc">＋ ADD QUESTION</span><span className="lb-m">＋</span></button>
                 </>}
             </span>
           )}
@@ -1076,7 +1108,7 @@ export default function RelDetailPage() {
               {curQa ? (
                 <>
                   {/* 스크롤은 여기까지 — 입력란은 밖에 두어 답변이 길어져도 자리를 지킨다 (v2.0 사용자 발견) */}
-                  <div className="qa-answers">
+                  <div className="qa-answers" ref={ansRef} onScroll={onAnsScroll}>
                   <div className="qa-no">TODAY&apos;S QUESTION · Q.{String(curQa.no).padStart(3, '0')}
                     {/* 질문에 대한 오너 설명 — 관리자만 작성 (v2.0 사용자 요청) */}
                     {isAdmin && (
@@ -1090,7 +1122,8 @@ export default function RelDetailPage() {
                   {curQa.note && <div className="qa-note">{curQa.note}</div>}
                   {/* 날짜만, 오른쪽 정렬 (v1.9 사용자 피드백) */}
                   <div className="qa-date" style={{ textAlign: 'right' }}>{curQa.date.replace(/-/g, '.')}</div>
-                  {curAnswers.map((a, i) => {
+                  {qaHidden && <div className="qa-locked">비공개 답변</div>}
+                  {!qaHidden && curAnswers.map((a, i) => {
                     const c = charOf(a.charId);
                     return (
                       <div key={i} className={`qa-ans ${sideOf(a.charId) === 'r' ? 'r' : ''}`}
@@ -1110,7 +1143,7 @@ export default function RelDetailPage() {
                     );
                   })}
                   </div>
-                  {answerableIds.length > 0 && (
+                  {!qaHidden && answerableIds.length > 0 && (
                     <div className="qa-input">
                       {/* 페어: 클릭 순환 · 다인: 드롭다운으로 선택 (v1.9 사용자 확정) — 권한 있는 캐릭터만 */}
                       <div className="char-pick" onClick={e => {
