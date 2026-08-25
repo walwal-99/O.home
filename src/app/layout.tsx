@@ -18,6 +18,7 @@ import { SettingSync } from '@/components/shell/SettingSync';
 import { ListSync } from '@/components/shell/ListSync';
 import { UploadBusy } from '@/components/shell/UploadBusy';
 import { SpellCheck } from '@/components/shell/SpellCheck';
+import { PageFrame } from '@/lib/pageRefresh';
 import { ServerBoot } from '@/components/shell/ServerBoot';
 import { siteMeta } from '@/lib/siteMeta';
 
@@ -75,7 +76,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <TopBar />
                   {/* 앱 셸: 스크롤은 이 영역 안에서만 (7장) */}
                   {/* PageFrame: 같은 메뉴를 다시 누르면 이 안쪽만 remount (BGM·상단바는 유지, v1.9) */}
-                  <main id="appMain">{children}</main>
+                  <main id="appMain"><PageFrame>{children}</PageFrame></main>
                   {/* BGM 미니 플레이어 — 전역 상주, 페이지 이동에도 유지 (4.1) */}
                   <BgmPlayer />
                   {/* 전역 커스텀 툴팁 — data-tip 요소 공통 (7장) */}
