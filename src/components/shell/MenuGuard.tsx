@@ -13,7 +13,7 @@
 import React, { Suspense } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
-import { useMenuSettings, hrefVis } from '@/lib/menuStore';
+import { useMenuSettings, hrefAccess } from '@/lib/menuStore';
 import { PageTitle } from '@/components/ui/PageText';
 
 function GuardInner({ children }: { children: React.ReactNode }) {
@@ -32,7 +32,7 @@ function GuardInner({ children }: { children: React.ReactNode }) {
   // 먼저 그려 두면 한 프레임이라도 내용이 비치고, 반대로 관리자에게 「비공개」가 번쩍인다
   if (!loaded || !ready) return <section className="page" />;
 
-  const vis = hrefVis(menuSet, path);
+  const vis = hrefAccess(menuSet, path);
   const ok = vis === 'all' || (vis === 'member' && !!user) || (vis === 'admin' && isAdmin);
   if (ok) return <>{children}</>;
 
@@ -69,8 +69,8 @@ function blockedView(vis: 'member' | 'admin') {
 
 /**
  * 상세 페이지용 (v2.0) — **글 주소에는 섹션이 안 들어간다.**
- * `/backup/b1`만 보고는 그 글이 비공개 갤러리 것인지 알 수 없어 MenuGuard가 못 막는다.
- * 글을 읽어 소속을 알아낸 페이지가 그 주소(`/backup?s=fan`)를 넘겨 주면 여기서 판정한다.
+ * `/gallery/b1`만 보고는 그 글이 비공개 갤러리 것인지 알 수 없어 MenuGuard가 못 막는다.
+ * 글을 읽어 소속을 알아낸 페이지가 그 주소(`/gallery?s=fan`)를 넘겨 주면 여기서 판정한다.
  *
  * 반환값이 있으면 그것을 그대로 return 하면 된다 —
  * **훅이므로 페이지의 다른 early return보다 먼저 불러야 한다**(렌더마다 훅 수가 달라지면 안 된다).
@@ -80,7 +80,7 @@ export function useHrefBlock(href?: string): React.ReactElement | null {
   const { user, isAdmin, ready } = useAuth();
   const [menuSet, , loaded] = useMenuSettings();
   if (!href || !loaded || !ready) return null;
-  const vis = hrefVis(menuSet, href);
+  const vis = hrefAccess(menuSet, href);
   if (vis === 'all' || (vis === 'member' && !!user) || (vis === 'admin' && isAdmin)) return null;
   return blockedView(vis);
 }
