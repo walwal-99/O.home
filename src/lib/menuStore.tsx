@@ -107,6 +107,21 @@ export const DEFAULT_MENU_SETTINGS: MenuSettings = {
 
 const KEY = 'ohome.menuset.v1';
 
+/**
+ * 훅 없이 지금 저장된 메뉴 설정 읽기 (v2.0).
+ * 저장 시점에 글 공개범위를 정할 때처럼 **렌더 밖에서** 필요하다 — 그쪽은 훅을 쓸 수 없다.
+ */
+export function currentMenuSettings(): MenuSettings {
+  try {
+    const raw = getRawSetting(KEY);
+    if (raw) {
+      const p = JSON.parse(raw) as Partial<MenuSettings>;
+      return { ...DEFAULT_MENU_SETTINGS, ...p, tree: p.tree ?? migrateTree(p) };
+    }
+  } catch { /* 기본값 */ }
+  return DEFAULT_MENU_SETTINGS;
+}
+
 export function useMenuSettings(): [MenuSettings, (patch: Partial<MenuSettings>) => void, boolean] {
   const [st, setSt] = useState<MenuSettings>(DEFAULT_MENU_SETTINGS);
   const [loaded, setLoaded] = useState(false);
@@ -172,6 +187,47 @@ export function menuLabelFor(href: string, extra?: ExtraEntry[]): string | null 
   if (f) return f.label;
   const e = extra?.find(x => x.href === href);
   return e ? e.name : null;
+}
+
+/**
+ * 이 주소가 메뉴에서 어떤 공개범위인지 (v2.0 사용자 발견 — 비공개로 둔 게시판이 위젯으로 샜다).
+ *
+ * 공개범위는 지금까지 **메뉴를 그릴 때만** 쓰였다. 링크가 안 보일 뿐이라, 메인 위젯은
+ * 그 게시판의 글을 그대로 꺼내 보여 줬다 — 로그인하지 않은 방문자에게도. 위젯이 메뉴와
+ * 같은 기준을 보도록 판정을 여기로 모은다.
+ *
+ * · 상세 페이지(`/board/123`)는 목록(`/board`)의 범위를 따른다.
+ * · 경계는 `/`와 `?`로 끊는다 — 안 그러면 `/comm-apply`가 `/comm`에 딸려 들어간다.
+ * · 여러 곳에 걸려 있으면 **더 구체적인 주소**가 이긴다(`/backup?s=fan` > `/backup`).
+ *   같은 구체성이면 느슨한 쪽 — 그 링크가 실제로 보이는 경로가 하나라도 있다는 뜻이므로.
+ */
+export function hrefVis(s: MenuSettings, path: string): MenuVis {
+  const rank: Record<MenuVis, number> = { all: 0, member: 1, admin: 2 };
+  const covers = (href: string) =>
+    path === href || path.startsWith(`${href}/`) || path.startsWith(`${href}?`);
+  let bestLen = -1;
+  let best: MenuVis = 'all';
+  const take = (href: string, v: MenuVis) => {
+    if (href.length > bestLen) { bestLen = href.length; best = v; }
+    else if (href.length === bestLen && rank[v] < rank[best]) best = v;
+  };
+  for (const g of s.tree ?? defaultTree()) {
+    const gv = g.vis ?? 'all';
+    if (g.href && covers(g.href)) take(g.href, gv);
+    // 상위가 더 좁으면 하위는 그 뒤에 숨는다 — 상위가 안 보이면 하위도 안 보이므로
+    for (const it of g.items) {
+      if (covers(it.href)) take(it.href, rank[gv] >= rank[it.vis ?? 'all'] ? gv : (it.vis ?? 'all'));
+    }
+  }
+  return best;
+}
+
+/** 이 방문자가 그 주소의 내용을 볼 수 있는가 (v2.0) — 위젯·목록이 함께 쓴다 */
+export function canViewHref(
+  s: MenuSettings, path: string, viewer: { loggedIn: boolean; isAdmin: boolean },
+): boolean {
+  const v = hrefVis(s, path);
+  return v === 'all' || (v === 'member' && viewer.loggedIn) || (v === 'admin' && viewer.isAdmin);
 }
 
 /** 설정을 적용한 실제 메뉴 트리 — 자유 트리(v1.9) 기반.
