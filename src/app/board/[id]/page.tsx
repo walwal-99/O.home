@@ -34,9 +34,6 @@ export default function BoardDetailPage() {
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [delAsk, setDelAsk] = useState(false);
   const [gName, setGName] = useState('');                       // 게스트 닉네임 (방문자 댓글 허용 시)
-  const [gPw, setGPw] = useState('');                           // 게스트 비밀번호
-  const [pwAsk, setPwAsk] = useState<Comment | null>(null);     // 게스트 댓글 삭제 — 비밀번호 확인
-  const [pwInput, setPwInput] = useState('');
 
   const post = posts.find(p => p.id === id);
   /* 이 글이 속한 곳이 비공개면 주소로 들어와도 열리지 않게 (v2.0 사용자 요청).
@@ -85,11 +82,11 @@ export default function BoardDetailPage() {
   const addComment = () => {
     if (!canComment) { toast('댓글은 로그인 후 작성할 수 있습니다'); return; }
     if (!cmt.trim()) return;
-    if (guestMode && (!gName.trim() || !gPw)) { toast('게스트는 닉네임과 비밀번호를 입력해 주세요'); return; }
+    if (guestMode && !gName.trim()) { toast('닉네임을 입력해 주세요'); return; }
     const base = { id: newId(), text: cmt.trim(), date: new Date().toISOString(), parentId: replyTo ?? undefined };
     const c: CommentRow = user
       ? { ...base, target: 'post', targetId: post.id, author: user.nickname, authorId: user.id }
-      : { ...base, target: 'post', targetId: post.id, author: gName.trim(), authorId: '', guestPw: gPw };
+      : { ...base, target: 'post', targetId: post.id, author: gName.trim(), authorId: '' };
     setCmtRows([...cmtRows, c]);
     setCmt(''); setReplyTo(null);
   };
@@ -100,13 +97,6 @@ export default function BoardDetailPage() {
     if (cmtRows.some(gone)) setCmtRows(cmtRows.filter(x => !gone(x)));
     if (post.comments.some(gone)) update({ comments: post.comments.filter(x => !gone(x)) });
   };
-  const confirmPw = () => {
-    if (!pwAsk) return;
-    if (pwInput !== pwAsk.guestPw) { toast('비밀번호가 일치하지 않습니다'); return; }
-    removeComment(pwAsk);
-    setPwAsk(null);
-  };
-
   const roots = comments.filter(c => !c.parentId);
   const childrenOf = (pid: string) => comments.filter(c => c.parentId === pid);
 
@@ -119,12 +109,10 @@ export default function BoardDetailPage() {
           {replyTo === c.id ? '답글 취소' : '답글'}
         </small>
       )}
-      {(isAdmin || (user && c.authorId === user.id) || (!c.authorId && c.guestPw)) && (
+      {/* 손님 댓글은 관리자만 지운다 (v2.0 사용자 확정) — 서버가 그렇게밖에 못 받는다 */}
+      {(isAdmin || (user && c.authorId === user.id)) && (
         <small style={{ cursor: 'var(--cur-pointer,pointer)', marginLeft: 8 }}
-          onClick={() => {
-            if (isAdmin || (user && c.authorId === user.id)) removeComment(c);
-            else { setPwInput(''); setPwAsk(c); }   // 게스트 댓글 — 비밀번호 확인
-          }}>
+          onClick={() => removeComment(c)}>
           삭제
         </small>
       )}
@@ -190,7 +178,7 @@ export default function BoardDetailPage() {
         {canComment ? (
           /* 게스트 작성(방문자 허용) — 구분선 아래 GUEST 바 + 입력줄 세로 배치 */
           <div className={`cmt-input ${guestMode ? 'guest' : ''}`}>
-            {guestMode && <GuestIdBar name={gName} pw={gPw} onName={setGName} onPw={setGPw} />}
+            {guestMode && <GuestIdBar name={gName} onName={setGName} />}
             <div className="ci-row" style={guestMode ? undefined : { display: 'contents' }}>
               <KInput
                 placeholder={replyTo ? '답글 작성...' : '댓글 남기기...'}
@@ -206,17 +194,6 @@ export default function BoardDetailPage() {
           </div>
         )}
       </div>
-
-      {/* 게스트 댓글 삭제 — 작성 시 입력한 비밀번호 확인 */}
-      <Modal open={pwAsk !== null} onClose={() => setPwAsk(null)} small title="댓글 삭제"
-        actions={<>
-          <button className="btn btn-ghost" onClick={() => setPwAsk(null)}>CANCEL</button>
-          <button className="btn btn-dark" onClick={confirmPw}>OK</button>
-        </>}>
-        <KInput placeholder="작성 시 입력한 비밀번호" type="password" value={pwInput} autoFocus
-          onChange={e => setPwInput(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') confirmPw(); }} />
-      </Modal>
 
       <ConfirmModal open={delAsk} title="글을 삭제하시겠습니까?" body="삭제한 글은 복구할 수 없습니다."
         onClose={() => setDelAsk(false)}
