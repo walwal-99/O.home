@@ -70,10 +70,15 @@ export default function RpPage() {
   const rel = rels.find(r => r.id === sel?.relId);
   /* 이 방이 어느 AU로 노는지 (v2.0 사용자 요청) — 방 안에서 쓰는 캐릭터를 통째로
      그 AU 프로필로 갈아 끼운다. 발화자 선택·말풍선·방 소제목이 모두 이 목록을 보므로
-     한 곳만 바꾸면 전부 따라온다. AU가 없으면 원래 목록 그대로다(참조도 같다). */
+     한 곳만 바꾸면 전부 따라온다. AU가 없으면 원래 목록 그대로다(참조도 같다).
+
+     **키는 `자관id:AU id`다** (v2.0 사용자 발견 — 「AU를 골랐는데 이름·사진이 원본으로 뜬다」).
+     캐릭터의 AU 프로필은 자관마다 따로 갖는 값이라 자관 id가 앞에 붙는다. 처음에 AU id만
+     넘겨서 프로필을 못 찾고 조용히 원본으로 떨어졌다 — 자관 상세가 쓰는 방식과 맞췄다. */
+  const auCharKey = sel?.relId && sel?.auId && sel.auId !== 'base' ? `${sel.relId}:${sel.auId}` : null;
   const rpChars = useMemo(
-    () => (sel?.auId ? chars.map(c => charWithAu(c, sel.auId)) : chars),
-    [chars, sel?.auId],
+    () => (auCharKey ? chars.map(c => charWithAu(c, auCharKey)) : chars),
+    [chars, auCharKey],
   );
   const speakChars = useMemo(() => {
     if (rel) {
