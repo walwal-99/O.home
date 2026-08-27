@@ -35,15 +35,15 @@ export interface Comment {
 export const COMMENT_KEY = 'ohome.comments.v1';
 
 export interface CommentRow extends Comment {
-  targetId: string;                 // 달린 대상(글·로드뷰 항목)의 id
-  target: 'post' | 'road';          // 대상 종류 — 같은 컬렉션을 나눠 쓴다
+  targetId: string;                 // 달린 대상(글·로드뷰 항목·감상타래)의 id
+  target: 'post' | 'road' | 'thread';   // 대상 종류 — 같은 컬렉션을 나눠 쓴다 (thread: v2.0 사용자 요청)
 }
 
 export const COMMENT_SEED: CommentRow[] = [];
 
 /** 대상 하나의 댓글 — 분리 저장분 + 옛 글 안에 남아 있던 것(legacy)을 합쳐 시간순으로 */
 export function commentsFor(
-  rows: CommentRow[], target: 'post' | 'road', targetId: string, legacy: Comment[] = [],
+  rows: CommentRow[], target: CommentRow['target'], targetId: string, legacy: Comment[] = [],
 ): Comment[] {
   const mine = rows.filter(r => r.target === target && r.targetId === targetId);
   const seen = new Set(mine.map(r => r.id));

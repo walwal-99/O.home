@@ -16,6 +16,7 @@ import { BlobImg, useBlobUrl } from '@/lib/blobStore';
 import { CroppedBlobImg, CropEditor, type CropValue } from '@/components/ui/CropEditor';
 
 import { EditableDesc, PageTitle } from '@/components/ui/PageText';
+import { useSectionTitle } from '@/lib/sectionStore';
 import { ConfirmModal } from '@/components/ui/Modal';
 
 function CharDetailInner() {
@@ -25,6 +26,8 @@ function CharDetailInner() {
   const [chars, setChars, loaded] = useLocalList<Character>('ohome.chars.v1', CHAR_SEED);
   const [rels] = useLocalList<Relation>('ohome.rels.v1', REL_SEED);
   const { familyOf } = useFonts();
+  // 큰 글씨 — 추가 섹션(창고캐 등)이면 그 이름, 눌렀을 때도 그 목록으로 (v2.0 사용자 제보)
+  const tt = useSectionTitle('chars', chars.find(c => c.id === id)?.secId, 'CHARACTERS');
   const params = useSearchParams();
   const [tab, setTab] = useState('basic');
   const [artIdx, setArtIdx] = useState(0);
@@ -97,21 +100,21 @@ function CharDetailInner() {
   if (!ch || !eff) {
     return (
       <section className="page">
-        <div className="page-head"><PageTitle>CHARACTERS</PageTitle><p>캐릭터를 찾을 수 없습니다</p></div>
+        <div className="page-head"><PageTitle href={tt.href}>{tt.title}</PageTitle><p>캐릭터를 찾을 수 없습니다</p></div>
       </section>
     );
   }
   if (ch.visibility === 'private' && !isAdmin) {
     return (
       <section className="page">
-        <div className="page-head"><PageTitle>CHARACTERS</PageTitle><p>비공개 캐릭터입니다</p></div>
+        <div className="page-head"><PageTitle href={tt.href}>{tt.title}</PageTitle><p>비공개 캐릭터입니다</p></div>
       </section>
     );
   }
   if (ch.visibility === 'member' && !user) {
     return (
       <section className="page">
-        <div className="page-head"><PageTitle>CHARACTERS</PageTitle><p>멤버공개 — 로그인 후 열람할 수 있습니다</p></div>
+        <div className="page-head"><PageTitle href={tt.href}>{tt.title}</PageTitle><p>멤버공개 — 로그인 후 열람할 수 있습니다</p></div>
       </section>
     );
   }
@@ -130,7 +133,7 @@ function CharDetailInner() {
     <section className="page page-char-detail">
       <div className="page-head">
         {/* 제목 자리는 메뉴 이름 — 클릭 시 목록 복귀. 캐릭터 이름은 우측 프로필 패널에 크게 표시 */}
-        <PageTitle>CHARACTERS</PageTitle>
+        <PageTitle href={tt.href}>{tt.title}</PageTitle>
         {/* 캐릭터별로 별도 저장 — 키에 캐릭터 id 포함 */}
         <EditableDesc k={`char-detail-desc:${ch.id}`} def="좌측 아이콘 탭 → 우측 정보 전환" />
         <div className="head-actions">
@@ -146,7 +149,7 @@ function CharDetailInner() {
           body="프로필·탭 정보가 함께 삭제되며 복구할 수 없습니다. 이 캐릭터가 들어간 자관에서는 멤버 표시가 사라집니다."
           onClose={() => setDelAsk(false)}
           buttons={[
-            { label: 'DELETE', kind: 'accent', onClick: () => { setChars(chars.filter(c => c.id !== ch.id)); router.push('/chars'); } },
+            { label: 'DELETE', kind: 'accent', onClick: () => { setChars(chars.filter(c => c.id !== ch.id)); router.push(tt.href); } },
             { label: 'CANCEL', kind: 'ghost', onClick: () => setDelAsk(false) },
           ]} />
       </div>

@@ -43,7 +43,7 @@ function CharsInner() {
         <EditableDesc k="chars-desc" def="운영자의 자캐 목록 · 3:4 두상 썸네일 · 클릭 시 프로필로 이동" />
         <div className="head-actions">
           <SearchBar onSearch={setQ} />
-          {isAdmin && <button className="btn btn-dark" onClick={() => router.push('/chars/new' + secQuery(sec.id))}>＋ ADD CHARACTER</button>}
+          {isAdmin && <button className="btn btn-dark" onClick={() => router.push('/chars/new' + secQuery('chars', sec.id))}>＋ ADD CHARACTER</button>}
         </div>
       </div>
       <div className="g5 chars-grid">

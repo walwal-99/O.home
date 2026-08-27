@@ -113,11 +113,15 @@ export async function createSupabaseBackend(
     async claimOwner() { return { ok: true }; },
 
     async listMembers() {
-      const { data, error } = await sb.from('profiles').select('id, nickname, role').order('created_at');
+      // avatar_url도 함께 — 이미지 정리가 프로필 사진을 「안 쓰는 파일」로 지우지 않게 (v2.0 사용자 제보)
+      const { data, error } = await sb.from('profiles').select('id, nickname, role, avatar_url').order('created_at');
       if (error) throw error;
       return (data ?? []).map(r => {
-        const p = r as { id: string; nickname: string; role: string };
-        return { id: p.id, nickname: p.nickname, role: (p.role as 'admin' | 'member') ?? 'member' };
+        const p = r as { id: string; nickname: string; role: string; avatar_url?: string | null };
+        return {
+          id: p.id, nickname: p.nickname, role: (p.role as 'admin' | 'member') ?? 'member',
+          avatarUrl: p.avatar_url ?? undefined,
+        };
       });
     },
 
@@ -131,18 +135,40 @@ export async function createSupabaseBackend(
     },
 
     async syncList<T extends ListItem>(coll: string, prev: T[], next: T[], uid: string | null) {
-      const { inserts, updates, deletes } = diffList(prev, next);
+      const { inserts, updates, moves, deletes } = diffList(prev, next);
       const toRow = ({ item, sort }: { item: T; sort: number }) => {
         const { authorId, visibility, editorIds } = metaOf(item, uid, visFloorOf(coll, item));
         return { id: item.id, data: item, author_id: authorId, visibility, editor_ids: editorIds, sort };
       };
-      if (inserts.length) {
-        const { error } = await sb.from(coll).insert(inserts.map(toRow));
+      // 한 요청에 다 실어 보내면 큰 본문(TRPG 로그 등)이 여럿일 때 요청이 너무 커진다
+      // (v2.0 — Firestore와 같은 문제 예방). 대략 크기를 재서 4MB쯤에서 끊어 보낸다.
+      const bySize = (rows: { item: T; sort: number }[]) => {
+        const parts: { item: T; sort: number }[][] = [];
+        let cur: { item: T; sort: number }[] = [];
+        let bytes = 0;
+        for (const r of rows) {
+          const size = JSON.stringify(r.item).length + 200;
+          if (cur.length && bytes + size > 4_000_000) { parts.push(cur); cur = []; bytes = 0; }
+          cur.push(r); bytes += size;
+        }
+        if (cur.length) parts.push(cur);
+        return parts;
+      };
+      for (const part of bySize(inserts)) {
+        const { error } = await sb.from(coll).insert(part.map(toRow));
         if (error) throw error;
       }
-      if (updates.length) {
-        const { error } = await sb.from(coll).upsert(updates.map(toRow), { onConflict: 'id' });
+      for (const part of bySize(updates)) {
+        const { error } = await sb.from(coll).upsert(part.map(toRow), { onConflict: 'id' });
         if (error) throw error;
+      }
+      // 자리만 바뀐 항목 — sort만 고친다 (본문까지 다시 보내지 않게, diffList 주석 참조).
+      // 값이 제각각이라 한 문장으로 못 묶는다 — 소량씩 나눠 병렬로 보낸다 (행 자체는 아주 작다)
+      for (let i = 0; i < moves.length; i += 25) {
+        const errs = await Promise.all(moves.slice(i, i + 25).map(m =>
+          sb.from(coll).update({ sort: m.sort }).eq('id', m.id).then(r => r.error)));
+        const bad = errs.find(Boolean);
+        if (bad) throw bad;
       }
       if (deletes.length) {
         const { error } = await sb.from(coll).delete().in('id', deletes);

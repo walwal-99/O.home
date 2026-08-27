@@ -5,7 +5,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { useLocalList, newId, FoldType } from '@/lib/postStore';
-import { useSectionParam, secStamp, secQuery, MAIN_SEC } from '@/lib/sectionStore';
+import { useSectionParam, secStamp, MAIN_SEC, useSectionTitle } from '@/lib/sectionStore';
 import { BackupPost, BACKUP_SEED } from '@/lib/galleryStore';
 import { useBoardSettings, DEFAULT_GALLERY_CATS, galleryCatsOf } from '@/lib/boardStore';
 import { useConfirmDelete } from '@/components/ui/Modal';
@@ -16,7 +16,7 @@ import { DragList } from '@/components/ui/DragList';
 import { CropEditor, CropValue } from '@/components/ui/CropEditor';
 import { putBlob, useBlobUrl } from '@/lib/blobStore';
 import { useToast } from '@/components/ui/Toast';
-import { EditableDesc } from '@/components/ui/PageText';
+import { EditableDesc, PageTitle } from '@/components/ui/PageText';
 
 interface UpFile {
   id: string; name: string; size?: number;
@@ -51,6 +51,9 @@ export function BackupForm({ initial }: { initial: BackupPost | null }) {
   // 어느 갤러리에서 눌러 왔는지 (v2.0) — 새 글을 그 목록에 넣고, 끝나면 그 목록으로 돌아간다
   const sec = useSectionParam('gallery');
   const isNew = !initial;
+  // 큰 글씨 — 추가 갤러리면 그 이름(메뉴 타이틀·이름이 우선), 누르면 그 목록으로 (v2.0 사용자 제보).
+  // 수정 주소에는 ?s=가 없으므로 고치는 글 자신의 소속(secId)에서 읽는다
+  const tt = useSectionTitle('gallery', initial ? (initial.secId ?? MAIN_SEC) : sec.id, isNew ? 'WRITE' : 'EDIT');
   const [title, setTitle] = useState(initial?.title ?? '');
   const [type, setType] = useState<'log' | 'single' | 'vlist'>(initial?.type ?? 'log');
   const [files, setFiles] = useState<UpFile[]>(() =>
@@ -84,7 +87,7 @@ export function BackupForm({ initial }: { initial: BackupPost | null }) {
   if (!user) {
     return (
       <section className="page">
-        <div className="page-head"><h1>WRITE</h1><p>글쓰기는 로그인 후 이용할 수 있습니다</p></div>
+        <div className="page-head"><PageTitle href={tt.href}>{tt.title}</PageTitle><p>글쓰기는 로그인 후 이용할 수 있습니다</p></div>
       </section>
     );
   }
@@ -131,7 +134,7 @@ export function BackupForm({ initial }: { initial: BackupPost | null }) {
 
   return (
     <section className="page">
-      <div className="page-head"><h1>{isNew ? 'WRITE' : 'EDIT'}</h1><EditableDesc k={isNew ? 'backup-write-desc' : 'backup-edit-desc'} def={isNew ? '그림백업 글 작성' : '그림백업 글 수정'} /></div>
+      <div className="page-head"><PageTitle href={tt.href}>{tt.title}</PageTitle><EditableDesc k={isNew ? 'backup-write-desc' : 'backup-edit-desc'} def={isNew ? '그림백업 글 작성' : '그림백업 글 수정'} /></div>
       <div className="write-grid">
         {/* 좌: 본문 */}
         <div className="panel" style={{ padding: 24 }}>
@@ -234,7 +237,7 @@ export function BackupForm({ initial }: { initial: BackupPost | null }) {
           </div>
           <div className="form-actions">
             <button className="btn btn-onbk"
-              onClick={() => router.push(isNew ? '/gallery' : `/gallery/${initial.id}`)}>CANCEL</button>
+              onClick={() => router.push(isNew ? tt.href : `/gallery/${initial.id}`)}>CANCEL</button>
             <button className="btn btn-accent" onClick={post}>
               {isNew ? 'POST' : 'SAVE'}
             </button>

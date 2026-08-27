@@ -73,7 +73,7 @@ function BackupPageInner() {
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <SearchBar onSearch={setQ} />
-          {user && <button className="btn btn-dark" onClick={() => router.push('/gallery/write' + secQuery(sec.id))}>✎ WRITE</button>}
+          {user && <button className="btn btn-dark" onClick={() => router.push('/gallery/write' + secQuery('gallery', sec.id))}>✎ WRITE</button>}
         </div>
       </div>
 
