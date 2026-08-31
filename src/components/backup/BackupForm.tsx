@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { useLocalList, newId, FoldType } from '@/lib/postStore';
 import { useSectionParam, secStamp, MAIN_SEC, useSectionTitle } from '@/lib/sectionStore';
+import { useMenuSettings, canGalleryWrite } from '@/lib/menuStore';
 import { BackupPost, BACKUP_SEED } from '@/lib/galleryStore';
 import { useBoardSettings, DEFAULT_GALLERY_CATS, galleryCatsOf } from '@/lib/boardStore';
 import { useConfirmDelete } from '@/components/ui/Modal';
@@ -45,7 +46,9 @@ function CropModal({ f, onClose, onApply }: { f: UpFile; onClose: () => void; on
 
 export function BackupForm({ initial }: { initial: BackupPost | null }) {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
+  // 갤러리 글쓰기 권한 (v2.0 사용자 요청) — 아래 새 글 가드에서 확인
+  const [menuSet, , menuLoaded] = useMenuSettings();
   const toast = useToast();
   const [posts, setPosts] = useLocalList<BackupPost>('ohome.backup.v1', BACKUP_SEED);
   // 어느 갤러리에서 눌러 왔는지 (v2.0) — 새 글을 그 목록에 넣고, 끝나면 그 목록으로 돌아간다
@@ -73,6 +76,10 @@ export function BackupForm({ initial }: { initial: BackupPost | null }) {
   const secCats = galleryCatsOf(boardSet, secId);
   const galleryCats = secCats.length ? secCats : DEFAULT_GALLERY_CATS;
   const [category, setCategory] = useState(initial?.category ?? '');
+  // 태그 (v2.0 사용자 요청) — 쉼표로 구분해 입력, 저장할 때 배열로
+  const [tagsText, setTagsText] = useState((initial?.tags ?? []).join(', '));
+  const parseTags = (v: string) =>
+    [...new Set(v.split(',').map(t => t.trim().replace(/^#/, '')).filter(Boolean))];
   // 목록이 로드되면 첫 말머리를 기본값으로 (등록 화면)
   useEffect(() => {
     if (!category && galleryCats[0]) setCategory(galleryCats[0].label);
@@ -88,6 +95,18 @@ export function BackupForm({ initial }: { initial: BackupPost | null }) {
     return (
       <section className="page">
         <div className="page-head"><PageTitle href={tt.href}>{tt.title}</PageTitle><p>글쓰기는 로그인 후 이용할 수 있습니다</p></div>
+      </section>
+    );
+  }
+
+  /* 갤러리 글쓰기 권한 (v2.0 사용자 요청) — WRITE 버튼과 같은 판정으로 주소 직접 진입도 막는다.
+     새 글만이다 — 이미 쓴 자기 글의 수정·삭제는 지금까지처럼 본인(과 관리자) 몫.
+     설정을 읽기 전에는 폼을 그리지 않는다 — 먼저 그리면 막힐 사람에게 폼이 한 번 비친다 */
+  if (isNew && !menuLoaded) return <section className="page" />;
+  if (isNew && !canGalleryWrite(menuSet, sec.id, { loggedIn: true, isAdmin, id: user.id })) {
+    return (
+      <section className="page">
+        <div className="page-head"><PageTitle href={tt.href}>{tt.title}</PageTitle><p>허용된 회원만 글을 쓸 수 있는 갤러리입니다</p></div>
       </section>
     );
   }
@@ -111,7 +130,7 @@ export function BackupForm({ initial }: { initial: BackupPost | null }) {
         id: newId(), title: title.trim(), type,
         images: imageIds, phList: files.length ? [] : ['cool'],
         thumbCrop: files[0]?.crop, // 대표 이미지 크롭 (6.1)
-        desc, category, madeDate: madeDate || undefined,
+        desc, category, tags: parseTags(tagsText), madeDate: madeDate || undefined,
         date: new Date().toISOString(), author: user.nickname, authorId: user.id,
         visibility,
         fold: foldType === 'none' ? null : { type: foldType, label: foldType === 'custom' ? foldLabel : undefined },
@@ -124,7 +143,7 @@ export function BackupForm({ initial }: { initial: BackupPost | null }) {
         ...x, title: title.trim(), type,
         images: imageIds, phList: files.length ? [] : x.phList,
         thumbCrop: files[0]?.crop,
-        desc, category, madeDate: madeDate || undefined, visibility,
+        desc, category, tags: parseTags(tagsText), madeDate: madeDate || undefined, visibility,
         fold: foldType === 'none' ? null : { type: foldType, label: foldType === 'custom' ? foldLabel : undefined },
       } : x));
       toast('저장되었습니다');
@@ -211,6 +230,11 @@ export function BackupForm({ initial }: { initial: BackupPost | null }) {
               {/* 말머리 목록은 환경설정 > 게시판 관리에서 관리 (v2.0 — 예전에는 코드에 박혀 있었다) */}
               <KSelect minWidth={120} value={category} onChange={setCategory}
                 options={galleryCats.map(c => ({ value: c.label, label: c.label }))} />
+            </div>
+            {/* 태그 (v2.0 사용자 요청) — 목록·카드에 나열되고 검색에 걸린다 */}
+            <div className="form-row">
+              <label className="k-label" style={{ width: 70 }}>태그</label>
+              <KInput value={tagsText} onChange={e => setTagsText(e.target.value)} placeholder="쉼표로 구분" style={{ flex: 1 }} />
             </div>
             <div className="form-row">
               <label className="k-label" style={{ width: 70 }}>제작일 (선택)</label>

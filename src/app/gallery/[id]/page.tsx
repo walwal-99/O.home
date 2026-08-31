@@ -68,7 +68,11 @@ export default function BackupDetailPage() {
     <section className="page">
       <div className="page-head">
         <PageTitle href={tt.href}>{tt.title}</PageTitle>
-        <p>{p.category} · {p.author} · {fmtDate(p.date)}{p.madeDate ? ` · 제작 ${p.madeDate}` : ''}</p>
+        <p>
+          {p.category} · {p.author} · {fmtDate(p.date)}{p.madeDate ? ` · 제작 ${p.madeDate}` : ''}
+          {/* 태그 (v2.0 사용자 요청) — 목록과 같은 표기 */}
+          {(p.tags ?? []).map(t => <i key={t} className="tag-in">#{t}</i>)}
+        </p>
         <div className="head-actions">
           {canManage && <button className="btn btn-dark" onClick={() => router.push(`/gallery/${p.id}/edit`)}>EDIT</button>}
           {canManage && <button className="btn btn-dark" onClick={() => setDelAsk(true)}>DELETE</button>}

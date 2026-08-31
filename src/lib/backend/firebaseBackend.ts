@@ -323,15 +323,17 @@ export async function createFirebaseBackend(cfg: FirebaseCfg): Promise<Backend> 
       }
     },
 
-    /* 공개범위만 다시 계산해 덮어쓰기 (v2.0) — data·sort는 손대지 않는다 */
+    /* 공개범위·편집 권한 목록만 다시 계산해 덮어쓰기 (v2.0) — data·sort는 손대지 않는다.
+       editorIds도 함께 쓴다 (포크 제보 — 업데이트 전에 준 편집 권한이 문서에 평평한 목록으로
+       없어서, 최신 규칙을 넣어도 그 회원의 저장이 계속 거부됐다) */
     async refreshVis<T extends ListItem>(coll: string, items: T[], uid: string | null): Promise<number> {
       let n = 0;
       for (let i = 0; i < items.length; i += 400) {
         const part = items.slice(i, i + 400);
         const batch = writeBatch(db);
         part.forEach(it => {
-          const { visibility } = metaOf(it, uid, visFloorOf(coll, it));
-          batch.update(doc(db, coll, it.id), { visibility, updatedAt: Date.now() });
+          const { visibility, editorIds } = metaOf(it, uid, visFloorOf(coll, it));
+          batch.update(doc(db, coll, it.id), { visibility, editorIds, updatedAt: Date.now() });
         });
         await batch.commit();
         n += part.length;

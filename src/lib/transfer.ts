@@ -9,7 +9,7 @@
 import { backend, COLLECTION_OF, CONTENT_COLLECTIONS } from './backend';
 import type { Backend, ListItem } from './backend';
 import { allBlobs, getBlob, putBlobAs, putBlob } from './blobStore';
-import { getSetting, setSetting, SETTING_KEYS } from './settingStore';
+import { getSetting, setSetting, SETTING_KEYS, isLocalOnlySetting } from './settingStore';
 
 export interface Snapshot {
   version: 2;
@@ -205,6 +205,9 @@ export async function loadAll(
     }
     for (const [k, v] of Object.entries(settings)) {
       if (v === undefined || v === null) continue;
+      // 기기 보관 전용 키(알림 on/off 등)는 서버로 올리지 않는다 (v2.0 포크 제보) —
+      // 한 번 올라가면 매 접속마다 그 값이 로컬을 덮어써 설정이 되돌아간다
+      if (isLocalOnlySetting(k)) continue;
       await target.saveSetting(k, v);
     }
     return { files: fileCount, items };

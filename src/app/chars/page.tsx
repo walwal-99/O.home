@@ -1,11 +1,12 @@
 'use client';
 // EditableDesc 주입
 // 캐릭터 리스트 (4.4) — 한 줄 5개 · 3:4 썸네일(크롭 반영) · 전용 폰트 · ＋ ADD CHARACTER
-import React, { Suspense, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { useLocalList } from '@/lib/postStore';
-import { Character, CHAR_SEED } from '@/lib/charStore';
+import { Character, CHAR_SEED, charPath } from '@/lib/charStore';
+import { backend, isServerMode } from '@/lib/backend';
 import { useSectionParam, filterSection, sectionSetter, secQuery } from '@/lib/sectionStore';
 import { SearchBar, FitText } from '@/components/ui/Kit';
 import { CroppedBlobImg } from '@/components/ui/CropEditor';
@@ -27,6 +28,22 @@ function CharsInner() {
   // 저장은 이 목록 자리만 교체 — 걸러진 목록을 그대로 넘겨도 다른 목록이 지워지지 않는다
   const setChars = sectionSetter(charsAll, sec.id, setCharsAll);
   const [q, setQ] = useState('');
+
+  /* 편집 권한 문서 자가 치유 (v2.0 포크 제보 — 「권한을 줬는데 그 회원의 저장이 거부된다」).
+     업데이트 전에 준 권한은 문서에 규칙이 읽는 평평한 목록(editorIds)이 없어, 최신 규칙을
+     넣어도 서버가 그 회원의 저장을 계속 거부한다. 관리자가 이 목록을 열면 권한 있는 캐릭터의
+     editorIds를 서버에서 한 번 다시 계산해 둔다 — 세션당 1회, 조용히. */
+  useEffect(() => {
+    if (!isAdmin || !isServerMode()) return;
+    const withGrants = charsAll.filter(c => c.grants?.some(g => g.level === 'edit'));
+    if (!withGrants.length) return;
+    try {
+      if (sessionStorage.getItem('ohome.editorids.healed') === '1') return;
+      sessionStorage.setItem('ohome.editorids.healed', '1');
+    } catch { /* 무시 */ }
+    void backend()?.refreshVis('characters', withGrants as unknown as { id: string }[], null)
+      .catch(() => { /* 무시 — 다음 세션에 다시 */ });
+  }, [isAdmin, charsAll]);
 
   const visible = chars
     .filter(c => c.own)
@@ -53,7 +70,7 @@ function CharsInner() {
           return (
             <div key={c.id} className="char-card" {...sort(i)}
               style={{ ...(priv ? { opacity: .45 } : undefined), ...sp.style }}
-              onClick={() => { if (!editOn) router.push(`/chars/${c.id}`); }}>
+              onClick={() => { if (!editOn) router.push(charPath(c)); }}>
               <div className="thumb" style={{ position: 'relative' }}>
                 <CroppedBlobImg fileRef={c.arts?.[0] ?? c.thumbId} crop={c.thumbCrop} ph={c.thumbClass}
                   label={priv ? '비공개' : '3:4'} />

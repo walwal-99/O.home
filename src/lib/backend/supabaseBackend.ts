@@ -176,21 +176,25 @@ export async function createSupabaseBackend(
       }
     },
 
-    /* 공개범위만 다시 계산해 덮어쓰기 (v2.0) — 같은 값이 될 것들끼리 묶어 한 번에 UPDATE 한다.
-       data를 다시 쓰지 않으므로 내용·순서가 흔들리지 않는다 */
+    /* 공개범위·편집 권한 목록만 다시 계산해 덮어쓰기 (v2.0) — 같은 값이 될 것들끼리 묶어
+       한 번에 UPDATE 한다. data를 다시 쓰지 않으므로 내용·순서가 흔들리지 않는다.
+       editor_ids도 함께 쓴다 (포크 제보 — 업데이트 전에 준 편집 권한이 행에 평평한 목록으로
+       없어서, 최신 규칙을 넣어도 그 회원의 저장이 계속 거부됐다) */
     async refreshVis<T extends ListItem>(coll: string, items: T[], uid: string | null): Promise<number> {
-      const byVis = new Map<string, string[]>();
+      // 값이 같은 것끼리 묶는다 — 편집 권한이 있는 항목은 드물어 묶음이 거의 그대로 유지된다
+      const byKey = new Map<string, { vis: string; editorIds: string[]; ids: string[] }>();
       items.forEach(it => {
-        const { visibility } = metaOf(it, uid, visFloorOf(coll, it));
-        const arr = byVis.get(visibility) ?? [];
-        arr.push(it.id);
-        byVis.set(visibility, arr);
+        const { visibility, editorIds } = metaOf(it, uid, visFloorOf(coll, it));
+        const key = visibility + '|' + JSON.stringify(editorIds);
+        const g = byKey.get(key) ?? { vis: visibility, editorIds, ids: [] };
+        g.ids.push(it.id);
+        byKey.set(key, g);
       });
       let n = 0;
-      for (const [vis, ids] of byVis) {
+      for (const { vis, editorIds, ids } of byKey.values()) {
         for (let i = 0; i < ids.length; i += 200) {
           const part = ids.slice(i, i + 200);
-          const { error } = await sb.from(coll).update({ visibility: vis }).in('id', part);
+          const { error } = await sb.from(coll).update({ visibility: vis, editor_ids: editorIds }).in('id', part);
           if (error) throw error;
           n += part.length;
         }
