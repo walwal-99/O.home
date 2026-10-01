@@ -817,12 +817,17 @@ export default function RelDetailPage() {
               등록된 이미지가 없으면 예전처럼 색 플레이스홀더가 그대로 나온다 */}
           {rel.aus.map((a, i) => {
             const isBase = a.id === 'base';
-            const thumb = isBase ? (rel.thumbId ?? rel.arts?.[0]) : a.arts?.[0];
+            const thumb = isBase
+  ? (rel.thumbId ?? rel.arts?.[0])
+  : (a.thumbId ?? a.arts?.[0]);
             return (
               <div key={a.id} className={`au-item ${auId === a.id ? 'on' : ''}`}
                 onClick={() => { setAuId(a.id); setArtIdx(0); setQaNo(null); }}>
-                <CroppedBlobImg fileRef={thumb} crop={isBase ? rel.thumbCrop : undefined}
-                  ph={['cool', 'pale', 'red'][i % 3]} />
+                <CroppedBlobImg
+  fileRef={thumb}
+  crop={isBase ? rel.thumbCrop : a.thumbCrop}
+  ph={['cool', 'pale', 'red'][i % 3]}
+/>
                 <small>{a.label}</small>
               </div>
             );
