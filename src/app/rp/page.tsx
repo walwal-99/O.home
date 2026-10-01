@@ -108,11 +108,59 @@ export default function RpPage() {
     if (el) el.scrollTop = el.scrollHeight;
   }, [sel?.id, msgRows.length]);
 
+// [[ndm]] 주사위 처리
+// 예: [[1d100]], [[2d6]], [[3d20]]
+const rollInlineDice = (input: string) => {
+  return input.replace(
+    /\[\[\s*(\d+)d(\d+)\s*\]\]/gi,
+    (_match, countText: string, sidesText: string) => {
+      const count = Number(countText);
+      const sides = Number(sidesText);
+
+      // 너무 큰 주사위 입력 방지
+      if (
+        !Number.isInteger(count) ||
+        !Number.isInteger(sides) ||
+        count < 1 ||
+        count > 100 ||
+        sides < 2 ||
+        sides > 1000
+      ) {
+        return _match;
+      }
+
+      const rolls: number[] = [];
+
+      for (let i = 0; i < count; i++) {
+        // 암호학적으로 안전한 난수 사용
+        const array = new Uint32Array(1);
+        crypto.getRandomValues(array);
+
+        rolls.push((array[0] % sides) + 1);
+      }
+
+      const total = rolls.reduce(
+        (sum, value) => sum + value,
+        0,
+      );
+
+      // 1d100 → 🎲 73
+      if (count === 1) {
+        return `🎲 ${total}`;
+      }
+
+      // 2d6 → 🎲 [3, 5] = 8
+      return `🎲 [${rolls.join(', ')}] = ${total}`;
+    },
+  );
+};
+  
   const [text, setText] = useState('');
   const send = () => {
     if (!sel || !user) return;
     let t = text.trim();
     if (!t) return;
+    t = rollInlineDice(t);
     let kind: RpMessage['kind'] = speaker === 'desc' ? 'desc' : 'char';
     if (t.startsWith('/desc ')) { kind = 'desc'; t = t.slice(6).trim(); } // /desc 명령 (v1.8)
     if (!t) return;
