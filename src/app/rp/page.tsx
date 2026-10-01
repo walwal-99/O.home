@@ -157,6 +157,7 @@ const rollInlineDice = (input: string) => {
 };
 
 // 저장된 주사위 표식을 실제 화면으로 바꾸기
+// 저장된 주사위 표식을 화면에 표시
 const renderDiceText = (input: string) => {
   const parts = input.split(/(⟦DICE:\d+d\d+\|.*?⟧)/g);
 
@@ -164,6 +165,31 @@ const renderDiceText = (input: string) => {
     const match = part.match(
       /^⟦DICE:(\d+d\d+)\|(.*?)⟧$/,
     );
+
+    if (!match) {
+      return (
+        <React.Fragment key={index}>
+          {part}
+        </React.Fragment>
+      );
+    }
+
+    const dice = match[1];
+    const result = match[2];
+
+    return (
+      <span
+        key={index}
+        title={`🎲 ${dice} → ${result.replace('🎲 ', '')}`}
+        style={{
+          cursor: 'help',
+        }}
+      >
+        {result}
+      </span>
+    );
+  });
+};
 
     if (!match) {
       return <React.Fragment key={index}>{part}</React.Fragment>;
@@ -255,7 +281,6 @@ const diceTextForEdit = (input: string) => {
   // 메시지 수정(본인) — 모달
   const [editMsg, setEditMsg] = useState<RpMessage | null>(null);
   const [editText, setEditText] = useState('');
-  const [hoveredDice, setHoveredDice] = useState<string | null>(null);
   const saveMsg = () => {
     if (!sel || !editMsg) return;
     if (!editText.trim()) { toast('내용을 입력해 주세요'); return; }
