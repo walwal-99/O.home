@@ -322,8 +322,6 @@ export interface RelAu {
   catchphrase: string;
   /** AU별 자관명 (v2.0 사용자 요청) — 비우면 자관 이름을 그대로 쓴다 */
   name?: string;
-  thumbId?: string;              // AU 선택창 전용 썸네일
-  thumbCrop?: import("@/components/ui/CropEditor").CropValue;
   /** AU별 이름/본문 폰트 (v2.0 사용자 제보 — 여태 AU 편집의 폰트가 원본에 저장돼 전체가 같이 바뀌었다).
    *  미지정이면 자관 기본 폰트 */
   fontId?: string;
