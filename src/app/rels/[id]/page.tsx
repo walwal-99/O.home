@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 // 자관 상세 (4.5) — 2인: 헤더 블러 + 대형 타이틀 + 좌우 카드 + 중앙 일러(전신/일러 토글) + AU
 // 하단: TIMELINE / QUESTIONS 탭 (v1.8) + 역극·로그 연동 리스트 · 다인(3인+): 멤버 리스트형
 // 관리자: 멤버 추가(내/상대 캐릭터) · 타임라인 항목 추가 · 질문 추가
@@ -817,17 +817,12 @@ export default function RelDetailPage() {
               등록된 이미지가 없으면 예전처럼 색 플레이스홀더가 그대로 나온다 */}
           {rel.aus.map((a, i) => {
             const isBase = a.id === 'base';
-            const thumb = isBase
-  ? (rel.thumbId ?? rel.arts?.[0])
-  : (a.thumbId ?? a.arts?.[0]);
+            const thumb = isBase ? (rel.thumbId ?? rel.arts?.[0]) : a.arts?.[0];
             return (
               <div key={a.id} className={`au-item ${auId === a.id ? 'on' : ''}`}
                 onClick={() => { setAuId(a.id); setArtIdx(0); setQaNo(null); }}>
-                <CroppedBlobImg
-  fileRef={thumb}
-  crop={isBase ? rel.thumbCrop : a.thumbCrop}
-  ph={['cool', 'pale', 'red'][i % 3]}
-/>
+                <CroppedBlobImg fileRef={thumb} crop={isBase ? rel.thumbCrop : undefined}
+                  ph={['cool', 'pale', 'red'][i % 3]} />
                 <small>{a.label}</small>
               </div>
             );
