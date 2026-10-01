@@ -26,8 +26,9 @@ export interface RelFormValue {
   visibility: Visibility;
   fontId: string;
   bodyFontId: string;
-  arts: string[];            // 첫 장 = 대표 = 리스트 썸네일 원본
-  thumbCrop?: CropValue;
+  arts: string[];
+  thumbId?: string;          // AU 선택창 전용 썸네일
+  thumbCrop?: CropValue;     // 썸네일 크롭
   headerImgId?: string;      // 헤더 이미지 (v1.5 — 풀폭 블러 + 페이드아웃)
   headerCrop?: CropValue;    // 헤더 위치 크롭 (원본 무손실)
   headerRemoved?: boolean;   // 헤더 제거 상태 (v1.9 — AU 편집에서 "없음 명시" 저장용)
@@ -181,11 +182,21 @@ export function RelForm({ initial, auId, myChars, memberNames, existingIds, onSa
   const [fontId, setFontId] = useState((auObj?.fontId ?? initial?.fontId) ?? 'serif');
   const [bodyFontId, setBodyFontId] = useState((auObj?.bodyFontId ?? initial?.bodyFontId) ?? 'default');
   const [picked, setPicked] = useState<string[]>([]);
+  // 자관과 AU는 각각 별도의 선택창 썸네일을 가질 수 있다.
+  // AU 편집 중이면 AU의 썸네일, 아니면 자관의 썸네일을 사용한다.
+  const initialThumbId = auObj?.thumbId ?? initial?.thumbId;
+  const initialThumbUrl = useBlobUrl(initialThumbId);
+
+  const [thumbFile, setThumbFile] = useState<File | null>(null);
+  const [thumbUrl, setThumbUrl] = useState('');
   const [arts, setArts] = useState<ArtItem[]>(() => {
     const refs = auObj ? (auObj.arts ?? []) : (initial?.arts ?? (initial?.thumbId ? [initial.thumbId] : []));
     return refs.map(r => ({ id: newId(), ref: r }));
   });
-  const [thumbCrop, setThumbCrop] = useState<CropValue | undefined>(initial?.thumbCrop);
+  const [thumbCrop, setThumbCrop] = useState<CropValue | undefined>(
+   auObj?.thumbCrop ?? initial?.thumbCrop
+  );
+  const [thumbCropOpen, setThumbCropOpen] = useState(false);
   const [cropOpen, setCropOpen] = useState(false);
   const [lb, setLb] = useState<number | null>(null);   // 아트 썸네일 클릭 → 원본 보기
   const [headerFile, setHeaderFile] = useState<File | null>(null);
@@ -291,6 +302,19 @@ export function RelForm({ initial, auId, myChars, memberNames, existingIds, onSa
     });
   };
 
+    // AU/자관 선택창 전용 썸네일 업로드
+  const addThumb = (file: File | undefined) => {
+    if (!file) return;
+
+    if (thumbUrl) {
+      URL.revokeObjectURL(thumbUrl);
+    }
+
+    setThumbFile(file);
+    setThumbUrl(URL.createObjectURL(file));
+    setThumbCrop(undefined);
+    setThumbCropOpen(true);
+  };
   const addArts = (list: FileList | null) => {
     if (!list || list.length === 0) return;
     const items = Array.from(list).map(f => ({ id: newId(), url: URL.createObjectURL(f), file: f }));
@@ -308,6 +332,9 @@ export function RelForm({ initial, auId, myChars, memberNames, existingIds, onSa
       if (existingIds?.includes(slug)) { toast('이미 사용 중인 주소입니다 — 다른 주소를 입력해 주세요'); return; }
     }
     const artIds = await Promise.all(arts.map(a => (a.file ? putBlob(a.file) : Promise.resolve(a.ref!))));
+      const savedThumbId = thumbFile
+      ? await putBlob(thumbFile)
+      : initialThumbId;
     onSave({
       // 수정에서 정한 주소는 별명으로 (v2.0) — 신규는 rels/new가 이 값을 id로 쓴다
       slug: slug.trim() || undefined,
@@ -315,6 +342,7 @@ export function RelForm({ initial, auId, myChars, memberNames, existingIds, onSa
       catchphrase: catchphrase.trim(),
       kind, visibility, fontId, bodyFontId,
       arts: artIds,
+      thumbId: savedThumbId,
       thumbCrop,
       headerImgId: headerFile ? await putBlob(headerFile) : (headerRemoved ? undefined : initHeaderId),
       headerCrop: headerRemoved ? undefined : headerCrop,
@@ -414,6 +442,87 @@ export function RelForm({ initial, auId, myChars, memberNames, existingIds, onSa
           </div>
         )}
 
+        {/* AU 선택창 전용 썸네일 */}
+<div style={{
+  display: 'grid',
+  gap: 8,
+  padding: 12,
+  border: '1px solid var(--line)',
+  borderRadius: 10,
+}}>
+  <label className="k-label" style={{ margin: 0 }}>
+    {auObj ? `${auObj.label} AU 선택창 썸네일` : 'AU 선택창 썸네일'}
+  </label>
+
+  <p className="hint" style={{ margin: 0 }}>
+    {auObj
+      ? '이 AU를 선택할 때만 보이는 썸네일입니다. 등록 일러스트와 별도로 설정할 수 있습니다.'
+      : '자관 선택창에서 보이는 썸네일입니다. 등록 일러스트와 별도로 설정할 수 있습니다.'}
+  </p>
+
+  <div style={{
+    width: 180,
+    aspectRatio: '4 / 3',
+    borderRadius: 8,
+    overflow: 'hidden',
+    position: 'relative',
+    border: '1px solid var(--line)',
+  }}>
+    {(thumbUrl || initialThumbUrl) ? (
+      <CropImg
+        src={thumbUrl || initialThumbUrl}
+        crop={thumbCrop}
+      />
+    ) : (
+      <div
+        className="ph"
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'grid',
+          placeItems: 'center',
+        }}
+      >
+        <span style={{ fontSize: 11 }}>첫 번째 아트를 사용합니다</span>
+      </div>
+    )}
+  </div>
+
+  <input
+    id="relThumbF"
+    type="file"
+    accept="image/*"
+    style={{ display: 'none' }}
+    onChange={e => {
+      addThumb(e.target.files?.[0]);
+      e.target.value = '';
+    }}
+  />
+
+  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+    <button
+      className="btn btn-ghost"
+      style={{ padding: '5px 12px', fontSize: 11 }}
+      onClick={() => document.getElementById('relThumbF')?.click()}
+    >
+      🖼 썸네일 선택
+    </button>
+
+    {(thumbUrl || initialThumbUrl) && (
+      <button
+        className="btn btn-ghost"
+        style={{ padding: '5px 12px', fontSize: 11 }}
+        onClick={() => setThumbCropOpen(true)}
+      >
+        ✂ 위치 조정
+      </button>
+    )}
+  </div>
+
+  <p className="hint" style={{ margin: 0 }}>
+    별도 썸네일을 지정하지 않으면 등록한 첫 번째 일러스트가 자동으로 사용됩니다.
+  </p>
+</div>
         {/* 아트 다중 등록 — 첫 장 = 대표 · 리스트 썸네일(4:3 크롭) */}
         <label className="k-label" style={{ margin: 0 }}>
           {auObj ? `아트 — ${auObj.label} AU 일러` : '아트'} <span style={{ fontWeight: 400, color: 'var(--faint)' }}>
@@ -837,6 +946,19 @@ export function RelForm({ initial, auId, myChars, memberNames, existingIds, onSa
         </div>
       </div>
 
+      {(thumbUrl || initialThumbUrl) && thumbCropOpen && (
+  <CropEditor
+    open={thumbCropOpen}
+    src={thumbUrl || initialThumbUrl}
+    aspect="4:3"
+    initial={thumbCrop}
+    onClose={() => setThumbCropOpen(false)}
+    onApply={c => {
+      setThumbCrop(c);
+      setThumbCropOpen(false);
+    }}
+  />
+)}
       {arts[0] && cropOpen && (
         <FirstArtCrop open={cropOpen} item={arts[0]} crop={thumbCrop}
           onClose={() => setCropOpen(false)}
