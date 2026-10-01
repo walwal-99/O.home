@@ -110,8 +110,6 @@ export default function RpPage() {
 
 // [[ndm]] 주사위 처리
 // 예: [[1d100]], [[2d6]], [[3d20]]
-// [[ndm]] 주사위 처리
-// 예: [[1d100]], [[2d6]], [[3d20]]
 const rollInlineDice = (input: string) => {
   return input.replace(
     /\[\[\s*(\d+)d(\d+)\s*\]\]/gi,
@@ -173,18 +171,46 @@ const renderDiceText = (input: string) => {
 
     const dice = match[1];
     const result = match[2];
+    const hoverKey = `${dice}-${index}`;
+    const isHovered = hoveredDice === hoverKey;
 
     return (
       <span
         key={index}
-        title={`${dice} → ${result.replace('🎲 ', '')}`}
+        onMouseEnter={() => setHoveredDice(hoverKey)}
+        onMouseLeave={() => setHoveredDice(null)}
         style={{
+          position: 'relative',
+          display: 'inline-block',
           cursor: 'help',
-          textDecoration: 'underline dotted',
-          textUnderlineOffset: 3,
         }}
       >
         {result}
+
+        {isHovered && (
+          <span
+            style={{
+              position: 'absolute',
+              left: '50%',
+              bottom: 'calc(100% + 8px)',
+              transform: 'translateX(-50%)',
+              zIndex: 1000,
+              whiteSpace: 'nowrap',
+              padding: '6px 9px',
+              borderRadius: 7,
+              background: '#252a2e',
+              color: '#fff',
+              fontSize: 11,
+              lineHeight: 1.4,
+              boxShadow: '0 4px 12px rgba(0,0,0,.25)',
+              pointerEvents: 'none',
+            }}
+          >
+            🎲 {dice}
+            <span style={{ opacity: 0.7, margin: '0 4px' }}>→</span>
+            {result.replace('🎲 ', '')}
+          </span>
+        )}
       </span>
     );
   });
@@ -229,6 +255,7 @@ const diceTextForEdit = (input: string) => {
   // 메시지 수정(본인) — 모달
   const [editMsg, setEditMsg] = useState<RpMessage | null>(null);
   const [editText, setEditText] = useState('');
+  const [hoveredDice, setHoveredDice] = useState<string | null>(null);
   const saveMsg = () => {
     if (!sel || !editMsg) return;
     if (!editText.trim()) { toast('내용을 입력해 주세요'); return; }
