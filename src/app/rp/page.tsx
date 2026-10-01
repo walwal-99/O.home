@@ -110,6 +110,8 @@ export default function RpPage() {
 
 // [[ndm]] 주사위 처리
 // 예: [[1d100]], [[2d6]], [[3d20]]
+// [[ndm]] 주사위 처리
+// 예: [[1d100]], [[2d6]], [[3d20]]
 const rollInlineDice = (input: string) => {
   return input.replace(
     /\[\[\s*(\d+)d(\d+)\s*\]\]/gi,
@@ -132,7 +134,6 @@ const rollInlineDice = (input: string) => {
       const rolls: number[] = [];
 
       for (let i = 0; i < count; i++) {
-        // 암호학적으로 안전한 난수 사용
         const array = new Uint32Array(1);
         crypto.getRandomValues(array);
 
@@ -144,6 +145,58 @@ const rollInlineDice = (input: string) => {
         0,
       );
 
+      // 화면에 표시할 주사위 결과
+      const result =
+        count === 1
+          ? `🎲 ${total}`
+          : `🎲 [${rolls.join(', ')}] = ${total}`;
+
+      // 나중에 화면에서 이 부분을
+      // 마우스 오버 가능한 주사위로 바꾼다.
+      return `⟦DICE:${count}d${sides}|${result}⟧`;
+    },
+  );
+};
+
+// 저장된 주사위 표식을 실제 화면으로 바꾸기
+const renderDiceText = (input: string) => {
+  const parts = input.split(/(⟦DICE:\d+d\d+\|.*?⟧)/g);
+
+  return parts.map((part, index) => {
+    const match = part.match(
+      /^⟦DICE:(\d+d\d+)\|(.*?)⟧$/,
+    );
+
+    if (!match) {
+      return <React.Fragment key={index}>{part}</React.Fragment>;
+    }
+
+    const dice = match[1];
+    const result = match[2];
+
+    return (
+      <span
+        key={index}
+        title={`${dice} → ${result.replace('🎲 ', '')}`}
+        style={{
+          cursor: 'help',
+          textDecoration: 'underline dotted',
+          textUnderlineOffset: 3,
+        }}
+      >
+        {result}
+      </span>
+    );
+  });
+};
+
+// 수정창에서는 내부 표식을 다시 [[ndm]]으로 보여준다.
+const diceTextForEdit = (input: string) => {
+  return input.replace(
+    /⟦DICE:(\d+d\d+)\|.*?⟧/g,
+    '[[$1]]',
+  );
+};
       // 1d100 → 🎲 73
       if (count === 1) {
         return `🎲 ${total}`;
@@ -189,7 +242,7 @@ const rollInlineDice = (input: string) => {
   const saveMsg = () => {
     if (!sel || !editMsg) return;
     if (!editText.trim()) { toast('내용을 입력해 주세요'); return; }
-    const t = editText.trim();
+    const t = rollInlineDice(editText.trim());
     if (msgRows.some(x => x.id === editMsg.id)) {
       setMsgRows(msgRows.map(x => (x.id === editMsg.id ? { ...x, text: t } : x)));
     } else {
@@ -447,10 +500,10 @@ ${rows}
                   if (m.kind === 'desc') {
                     return (
                       <div key={m.id} className="msg-desc">
-                        {m.text}
+                        {renderDiceText(m.text)}
                         {mine && (
                           <span className="m-act">
-                            <button onClick={() => { setEditMsg(m); setEditText(m.text); }}>EDIT</button>
+                            <button onClick={() => { setEditMsg(m); setEditText(diceTextForEdit(m.text)); }}>EDIT</button>
                             <button onClick={() => removeMsg(m)}>DEL</button>
                           </span>
                         )}
@@ -471,12 +524,12 @@ ${rows}
                       <Face ch={ch} className="face" />
                       <div>
                         <div className="who">{name}</div>
-                        <div className="bub">{m.text}</div>
+                        <div className="bub">{renderDiceText(m.text)}</div>
                         <div style={{ fontSize: 9, color: 'var(--faint)', marginTop: 3 }}>{fmtHM(m.date)}</div>
                       </div>
                       {mine && (
                         <span className="m-act">
-                          <button onClick={() => { setEditMsg(m); setEditText(m.text); }}>EDIT</button>
+                          <button onClick={() => { setEditMsg(m); setEditText(diceTextForEdit(m.text)); }}>EDIT</button>
                           <button onClick={() => removeMsg(m)}>DEL</button>
                         </span>
                       )}
