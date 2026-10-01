@@ -197,16 +197,6 @@ const diceTextForEdit = (input: string) => {
     '[[$1]]',
   );
 };
-      // 1d100 → 🎲 73
-      if (count === 1) {
-        return `🎲 ${total}`;
-      }
-
-      // 2d6 → 🎲 [3, 5] = 8
-      return `🎲 [${rolls.join(', ')}] = ${total}`;
-    },
-  );
-};
   
   const [text, setText] = useState('');
   const send = () => {
