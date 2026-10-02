@@ -139,16 +139,13 @@ const rollInlineDice = (input: string) => {
       }
 
       const total = rolls.reduce(
-        (sum, value) => sum + value,
-        0,
-      );
+  (sum, value) => sum + value,
+);
 
-      // 화면에 표시할 주사위 결과
-      const result = `${total}`;
+const result = `${total}`;
+const breakdown = rolls.join(', ');
 
-      // 나중에 화면에서 이 부분을
-      // 마우스 오버 가능한 주사위로 바꾼다.
-      return `⟦DICE:${count}d${sides}|${result}⟧`;
+return `⟦DICE:${count}d${sides}|${result}|${breakdown}⟧`;
     },
   );
 };
@@ -156,11 +153,13 @@ const rollInlineDice = (input: string) => {
 // 저장된 주사위 표식을 실제 화면으로 바꾸기
 // 저장된 주사위 표식을 화면에 표시
 const renderDiceText = (input: string) => {
-  const parts = input.split(/(⟦DICE:\d+d\d+\|.*?⟧)/g);
+  const parts = input.split(
+    /(⟦DICE:\d+d\d+\|.*?\|.*?⟧)/g,
+  );
 
   return parts.map((part, index) => {
     const match = part.match(
-      /^⟦DICE:(\d+d\d+)\|(.*?)⟧$/,
+      /^⟦DICE:(\d+d\d+)\|(.*?)\|(.*?)⟧$/,
     );
 
     if (!match) {
@@ -173,11 +172,12 @@ const renderDiceText = (input: string) => {
 
     const dice = match[1];
     const result = match[2];
+    const breakdown = match[3];
 
     return (
       <span
         key={index}
-        title={`🎲 ${dice} → ${result.replace('🎲 ', '')}`}
+        title={`🎲 ${dice} → [${breakdown}] = ${result}`}
         style={{
           cursor: 'help',
         }}
@@ -191,7 +191,7 @@ const renderDiceText = (input: string) => {
 // 수정창에서는 내부 표식을 다시 [[ndm]]으로 보여준다.
 const diceTextForEdit = (input: string) => {
   return input.replace(
-    /⟦DICE:(\d+d\d+)\|.*?⟧/g,
+    /⟦DICE:(\d+d\d+)\|.*?\|.*?⟧/g,
     '[[$1]]',
   );
 };
