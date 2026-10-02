@@ -182,7 +182,7 @@ const renderDiceText = (input: string) => {
           cursor: 'help',
         }}
       >
-        {result}
+        [{result}]
       </span>
     );
   });
