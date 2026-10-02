@@ -144,10 +144,7 @@ const rollInlineDice = (input: string) => {
       );
 
       // 화면에 표시할 주사위 결과
-      const result =
-        count === 1
-          ? `🎲 ${total}`
-          : `🎲 [${rolls.join(', ')}] = ${total}`;
+      const result = `${total}`;
 
       // 나중에 화면에서 이 부분을
       // 마우스 오버 가능한 주사위로 바꾼다.
