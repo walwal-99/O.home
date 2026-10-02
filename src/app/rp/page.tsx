@@ -188,57 +188,6 @@ const renderDiceText = (input: string) => {
   });
 };
 
-    if (!match) {
-      return <React.Fragment key={index}>{part}</React.Fragment>;
-    }
-
-    const dice = match[1];
-    const result = match[2];
-    const hoverKey = `${dice}-${index}`;
-    const isHovered = hoveredDice === hoverKey;
-
-    return (
-      <span
-        key={index}
-        onMouseEnter={() => setHoveredDice(hoverKey)}
-        onMouseLeave={() => setHoveredDice(null)}
-        style={{
-          position: 'relative',
-          display: 'inline-block',
-          cursor: 'help',
-        }}
-      >
-        {result}
-
-        {isHovered && (
-          <span
-            style={{
-              position: 'absolute',
-              left: '50%',
-              bottom: 'calc(100% + 8px)',
-              transform: 'translateX(-50%)',
-              zIndex: 1000,
-              whiteSpace: 'nowrap',
-              padding: '6px 9px',
-              borderRadius: 7,
-              background: '#252a2e',
-              color: '#fff',
-              fontSize: 11,
-              lineHeight: 1.4,
-              boxShadow: '0 4px 12px rgba(0,0,0,.25)',
-              pointerEvents: 'none',
-            }}
-          >
-            🎲 {dice}
-            <span style={{ opacity: 0.7, margin: '0 4px' }}>→</span>
-            {result.replace('🎲 ', '')}
-          </span>
-        )}
-      </span>
-    );
-  });
-};
-
 // 수정창에서는 내부 표식을 다시 [[ndm]]으로 보여준다.
 const diceTextForEdit = (input: string) => {
   return input.replace(
